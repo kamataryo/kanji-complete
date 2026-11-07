@@ -125,10 +125,10 @@ _yomi() {
     return 1
   fi
 
-  # 対象ディレクトリの中で、漢字を含む名前だけを読み変換にかける
+  # 対象ディレクトリの中で、漢字かかなを含む名前だけを読み変換にかける
   local -a files yomi hits
   files=( ${~dir:-./}*(N:t) )
-  files=( ${(M)files:#*[一-鿿々〆]*} )
+  files=( ${(M)files:#*[一-鿿々〆ぁ-ゖァ-ヶ]*} )
   (( $#files )) || return 1
 
   yomi=( "${(@f)$(print -rl -- $files | $yomicmd)}" )

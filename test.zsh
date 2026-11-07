@@ -15,10 +15,11 @@ local -a cases=(
   'ls gijir'     'ls 議事録.md '        # _yomi: ローマ字読み
   'ls tuku'      'ls 机.txt '           # _yomi: 訓令式
   'ls sub/かい'  'ls sub/会議.txt '     # _yomi: ディレクトリつき
+  'ls ka'        'ls カヤック.txt '     # _yomi: かなだけの名前をローマ字読みで
   'ls Doc'       'ls Documents/'        # ふつうの補完はそのまま
 )
 mkdir -p $tmp/Documents $tmp/sub
-touch $tmp/{テスト.txt,東京タワー.txt,議事録.md,机.txt} $tmp/sub/会議.txt
+touch $tmp/{テスト.txt,東京タワー.txt,議事録.md,机.txt,カヤック.txt} $tmp/sub/会議.txt
 
 zpty z env LC_ALL=ja_JP.UTF-8 TERM=xterm zsh -f -i || { print 'NG zpty が使えない'; exit 1 }
 zpty -w z "PS1='READY> '"

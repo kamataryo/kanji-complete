@@ -2,9 +2,9 @@
 #
 #   source /path/to/kanji-complété.plugin.zsh     # compinit の前でも後でもよい
 #
-# zstyle ':completion:*' completer に次の 2 つを自動で差し込む
-#   _kana  _complete の前。ひらがな⇔カタカナを区別せずに補完する（ファイル名以外にも効く）
-#   _yomi  _complete の後。漢字を含むファイル名を読みで補完する（要 mecab または kakasi）
+# zstyle ':completion:*' completer の _complete を _yomi に置き換える。_yomi は次の 2 つを合わせた候補を出す
+#   _kana  ひらがな⇔カタカナを区別しない、ふつうの補完（ファイル名以外にも効く）
+#   読み   漢字やかなを含むファイル名を読みで補完する（要 mecab または kakasi）
 #            かなで入力     → 読みと前方一致
 #            英小文字で入力 → ローマ字読みと前方一致（ヘボン式・訓令式どちらでも。si/shi, tu/tsu, nn/n など）
 #                             不要なら zstyle ':completion:*' yomi-romaji no
@@ -96,7 +96,28 @@ _yomi_norm() {
   REPLY=$s
 }
 
+# ひらがな → カタカナ（REPLY に返す）
+_yomi_kata() {
+  local c out=
+  for c in ${(s::)1}; do
+    [[ $c == [ぁ-ゖ] ]] && out+=${(#)$(( #c + 0x60 ))} || out+=$c
+  done
+  REPLY=$out
+}
+
+# _complete の代わりに入る completer。ふつうの補完（かなの入力なら _kana）に、読みで当たったファイル名を足す
 _yomi() {
+  local opre=$PREFIX osuf=$SUFFIX ret=1
+  _kana || _complete && ret=0
+  PREFIX=$opre SUFFIX=$osuf   # _kana が成功すると PREFIX がパターンのまま残る
+  [[ $_comp_tags == *(files|directories)* ]] || return ret   # ファイル名を補完する場面だけ
+  _yomi_files || return ret
+  # 候補の共通部分が空のまま差し込むと入力が消えるので、そのときは一覧だけ出す（次の TAB でメニュー）
+  [[ $compstate[insert] == *unambiguous && -z $compstate[unambiguous] ]] && compstate[insert]=
+  return 0
+}
+
+_yomi_files() {
   # 読み（カタカナ）を得るコマンド
   local -a yomicmd
   if (( $+commands[mecab] )); then
@@ -107,16 +128,14 @@ _yomi() {
     return 1
   fi
 
-  local word=${(Q)PREFIX} dir= rawdir= base c key= mode
+  local word=${(Q)PREFIX} dir= rawdir= base lit key mode
   [[ $word == */* ]] && { dir=${word%/*}/; rawdir=${PREFIX%/*}/ }   # rawdir は入力どおり（~ やエスケープを保つ）
   base=${word##*/}
   [[ -n $base ]] || return 1
+  _yomi_kata $base; lit=$REPLY   # 入力をカタカナにそろえたもの
 
   if [[ $base == *[ぁ-ゖァ-ヶ]* ]]; then
-    mode=kana
-    for c in ${(s::)base}; do   # 入力をカタカナにそろえる
-      [[ $c == [ぁ-ゖ] ]] && key+=${(#)$(( #c + 0x60 ))} || key+=$c
-    done
+    mode=kana key=$lit
   elif [[ $base == [A-Za-z0-9._\'-]## ]] &&
        zstyle -T ":completion:${curcontext}:" yomi-romaji; then
     mode=romaji
@@ -127,7 +146,11 @@ _yomi() {
 
   # 対象ディレクトリの中で、漢字かかなを含む名前だけを読み変換にかける
   local -a files yomi hits
-  files=( ${~dir:-./}*(N:t) )
+  if [[ $_comp_tags == *files* ]]; then
+    files=( ${~dir:-./}*(N:t) )
+  else
+    files=( ${~dir:-./}*(N-/:t) )   # cd などディレクトリだけを補完する場面
+  fi
   files=( ${(M)files:#*[一-鿿々〆ぁ-ゖァ-ヶ]*} )
   (( $#files )) || return 1
 
@@ -136,6 +159,7 @@ _yomi() {
 
   local -i i
   for (( i = 1; i <= $#files; i++ )); do
+    _yomi_kata $files[i]; [[ $REPLY == ${lit}* ]] && continue   # 名前そのものが当たるものは _kana か _complete が拾っている
     if [[ $mode == romaji ]]; then
       _yomi_to_romaji ${yomi[i]}; _yomi_norm $REPLY
       [[ $REPLY == ${key}* ]] && hits+=( $files[i] )
@@ -154,7 +178,7 @@ _yomi() {
   emulate -L zsh
   local -a c
   zstyle -g c ':completion:*' completer || c=( _complete _ignored )   # zsh の既定値
-  c=( ${c:#_(kana|yomi)} )
-  c[${c[(i)_complete]}]=( _kana _complete _yomi )   # _complete が無ければ末尾に足す
+  c=( ${${c:#_kana}/#%_yomi*/_complete} )   # 2 回目からは _yomi の位置を _complete とみなす
+  c[${c[(i)_complete]}]=_yomi:complete   # :complete で文脈名を complete のまま保ち、':completion::complete:*' の設定を効かせる。_complete が無ければ末尾に足す
   zstyle ':completion:*' completer $c
 }

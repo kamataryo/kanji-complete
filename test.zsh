@@ -15,15 +15,18 @@ local -a cases=(
   'ls gijir'     'ls 議事録.md '        # _yomi: ローマ字読み
   'ls tuku'      'ls 机.txt '           # _yomi: 訓令式
   'ls sub/かい'  'ls sub/会議.txt '     # _yomi: ディレクトリつき
+  'ls ~/sub/kai' 'ls ~/sub/会議.txt '   # _yomi: ~ つき
+  'ls sub2/kai'  'ls sub2/kai|2'        # _yomi: 候補が複数でも入力（kai）を消さない
+  'ls ~/sub2/kai' 'ls ~/sub2/kai|2'    # 同上、~ つき
   'ls kay'       'ls カヤック.txt '     # _yomi: かなだけの名前をローマ字読みで
   'ls ka'        'ls ka|2'              # _yomi: kamata と カヤック.txt の両方。入力は消さない
   'cd tuk'       'cd 月/'               # _yomi: cd ではディレクトリだけ（机.txt は出さない）
   'ls Doc'       'ls Documents/'        # ふつうの補完はそのまま
 )
 mkdir -p $tmp/Documents $tmp/sub $tmp/月
-touch $tmp/{テスト.txt,東京タワー.txt,議事録.md,机.txt,カヤック.txt,kamata} $tmp/sub/会議.txt
+mkdir $tmp/sub2; touch $tmp/sub2/{会議,解析}.txt $tmp/{テスト.txt,東京タワー.txt,議事録.md,机.txt,カヤック.txt,kamata} $tmp/sub/会議.txt
 
-zpty z env LC_ALL=ja_JP.UTF-8 TERM=xterm zsh -f -i || { print 'NG zpty が使えない'; exit 1 }
+zpty z env HOME=$tmp LC_ALL=ja_JP.UTF-8 TERM=xterm zsh -f -i || { print 'NG zpty が使えない'; exit 1 }
 zpty -w z "PS1='READY> '"
 zpty -r z got '*READY> '
 zpty -w z "cd $tmp; autoload -Uz compinit; compinit -u -D; source $plugin"

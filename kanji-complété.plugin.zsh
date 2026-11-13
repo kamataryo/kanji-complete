@@ -112,8 +112,9 @@ _yomi() {
   PREFIX=$opre SUFFIX=$osuf   # _kana が成功すると PREFIX がパターンのまま残る
   [[ $_comp_tags == *(files|directories)* ]] || return ret   # ファイル名を補完する場面だけ
   _yomi_files || return ret
-  # 候補の共通部分が空のまま差し込むと入力が消えるので、そのときは一覧だけ出す（次の TAB でメニュー）
-  [[ $compstate[insert] == *unambiguous && -z $compstate[unambiguous] ]] && compstate[insert]=
+  # 候補の共通部分がディレクトリまでしかないまま差し込むと入力が消えるので、そのときは一覧だけ出す（次の TAB でメニュー）
+  local d=; [[ $opre == */* ]] && d=${opre%/*}/
+  [[ $compstate[insert] == *unambiguous && $compstate[unambiguous] != ${d}?* ]] && compstate[insert]=
   return 0
 }
 
@@ -169,7 +170,8 @@ _yomi_files() {
   done
   (( $#hits )) || return 1
 
-  compadd -U -Q -f -W "${~dir:-./}" ${rawdir:+-p} ${rawdir:+$rawdir} -- "${(@q)hits}"
+  local xdir=${~dir:-./}   # -W に渡す前に ~ を展開しておく（引用符の中では展開されない）
+  compadd -U -Q -f -W $xdir ${rawdir:+-p} ${rawdir:+$rawdir} -- "${(@q)hits}"
 }
 
 # ---- completer に差し込む（何度 source しても重複しない） -------------------
